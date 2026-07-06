@@ -421,7 +421,7 @@ const handleInputClick = () => {
     
     const link = document.createElement('a');
     link.href = qrDataUrl;
-    link.download = 'URLqrcodeAquin.png';
+    link.download = 'URLqrcodeLucid.png';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -969,7 +969,7 @@ useEffect(() => {
   onClick={(e) => {
     e.preventDefault();
     
-    // URL for Team Aquin website
+    // Feedback form URL
     const url = "https://docs.google.com/forms/d/e/1FAIpQLSfCaTM2ijiW0niN_AZxCk1cEBQwKwq5KD2z0Jf65MnHbqMaVA/viewform?usp=header";
     
     // Get the webview reference and load the URL
@@ -996,7 +996,7 @@ useEffect(() => {
   }}
 >
   <FlyingSaucer size={18} strokeWidth={2} />
-  <p className="text-[14px] font-normal">Ask Team Aquin</p>
+  <p className="text-[14px] font-normal">Send feedback</p>
   <DropdownMenuShortcut><p className="text-xs text-foreground">Click</p></DropdownMenuShortcut>
 </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -1220,7 +1220,7 @@ useEffect(() => {
     {qrDataUrl && (
       <>
         <div className="p-2 flex justify-center">
-          <img src={qrDataUrl} alt="QR Code from Aquin" className="w-32 h-32" />
+          <img src={qrDataUrl} alt="QR Code from Lucid" className="w-32 h-32" />
         </div>
         <DropdownMenuItem 
           onClick={(e) => {

@@ -1,6 +1,6 @@
-# Aquin
+# Lucid Browser
 
-## Lucid
+An open-source AI-powered browser built with Electron and React.
 
 ### Install
 

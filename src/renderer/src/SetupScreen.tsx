@@ -220,8 +220,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onComplete }) => {
       className="flex w-auto items-center whitespace-pre" 
     > 
       <h2 className="flex items-center gap-2 text-2xl font-semibold text-white tracking-tighter sm:text-3xl leading-none"> 
-         <img src={mainlogo} alt="Aquin Logo" className="h-[30px]"  />
-        Aquin 
+         <img src={mainlogo} alt="Lucid logo" className="h-[30px]"  />
+        Lucid 
       </h2> 
     </div> 
       {renderStepContent()}

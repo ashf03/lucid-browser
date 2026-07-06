@@ -3113,7 +3113,7 @@ app.whenReady().then(() => {
 
   try {
     checkPythonAvailability();
-    electronApp.setAppUserModelId('com.aquin')
+    electronApp.setAppUserModelId('com.lucid.browser')
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
     })

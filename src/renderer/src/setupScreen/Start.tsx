@@ -83,7 +83,7 @@ const Start: React.FC<StartProps> = ({ nextStep }) => {
                 this is Lucid.
               </p>
               <p className="text-lg font-extrabold text-white inter-var text-center">
-                By Team Aquin
+                Open source
               </p>
               <Button 
                 onClick={handleNextStepClick}

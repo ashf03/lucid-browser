@@ -110,7 +110,7 @@ const Last: React.FC<LastProps> = ({ nextStep }) => {
                 we see, you're ready!
               </p>
               <p className="text-lg font-bold text-white inter-var text-center mb-6">
-                Check your profile at <span className='underline'> www.aquin.app/profile </span>
+                Manage your profile in Settings
               </p>
               
               {error && (

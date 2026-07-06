@@ -1,5 +1,5 @@
-appId: com.aquin.app
-productName: Aquin
+appId: com.lucid.browser
+productName: Lucid
 asar: true
 directories:
   output: release/${version}
@@ -23,7 +23,7 @@ files:
 asarUnpack:
   - public/**
 win:
-  executableName: Aquin
+  executableName: Lucid
 nsis:
   artifactName: ${name}-${version}.${ext}
   shortcutName: ${productName}
@@ -44,7 +44,7 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: Team Aquin
+  maintainer: ashf03
   category: Productivity
 appImage:
   artifactName: ${name}-${version}.${ext}

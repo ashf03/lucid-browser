@@ -1,11 +1,11 @@
 {
-  "name": "aquin",
+  "name": "lucid-browser",
   "version": "1.0.0",
-  "description": "Something Cool & Insane.",
+  "description": "Open-source AI browser.",
   "main": "./out/main/index.js",
-  "author": "Team Aquin",
+  "author": "ashf03",
   "type": "module",
-  "homepage": "https://www.aquin.app",
+  "homepage": "https://github.com/ashf03/lucid-browser",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",

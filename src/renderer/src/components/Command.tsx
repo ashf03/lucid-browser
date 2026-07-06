@@ -1986,7 +1986,7 @@ const renderInputWithTags = () => {
                 onChange={handleLocalInput}
                 onKeyDown={handleLocalKeyDown}
                 disabled={isLoading || isSearching}
-                placeholder="Enter URL or ask Aquin anything..." 
+                placeholder="Enter URL or ask Lucid anything..." 
                 spellCheck={true}
                 minRows={1}
                 maxRows={6}
@@ -2006,7 +2006,7 @@ const renderInputWithTags = () => {
                 onChange={handleLocalInput}
                 onKeyDown={handleLocalKeyDown}
                 disabled={isLoading || isSearching}
-                placeholder="Enter URL or ask Aquin anything..." 
+                placeholder="Enter URL or ask Lucid anything..." 
                 spellCheck={true}
                 minRows={1}
                 maxRows={6}
