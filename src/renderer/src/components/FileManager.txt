@@ -1,0 +1,1758 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '../ui/context-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import FolderIconSVG from './FileManager/Folder.svg'
+import FileIconSVG from './FileManager/File.svg'
+import extensionMap from './FileManager/extensionMap.json';
+import { 
+  ArrowClockwise, 
+  ArrowLeft, 
+  ArrowRight, 
+  Plus,
+  X,
+  List,
+  GridFour,
+  Calendar,
+  HardDrives,
+  SignOut,
+  CaretRight,
+  CaretLeft,
+  Play,
+  Scissors,
+  Copy,
+  ClipboardText,
+  Trash,
+  PencilSimple,
+  Folder as FolderIcon,
+  Info,
+  MagnifyingGlass
+} from '@phosphor-icons/react';
+import { cn } from '../lib/utils';
+
+interface FileItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number | null;
+  modified: Date;
+}
+
+interface FileManagerProps {
+  isOpen: boolean;
+  activeTabId: string;
+  onClose: () => void;
+}
+
+interface ExtensionDistribution {
+  [extension: string]: number;
+}
+
+interface DateGroup {
+  title: string;
+  items: FileItem[];
+  key: string;
+}
+
+type ViewMode = 'grid' | 'list';
+
+// Custom Folder component using the SVG file
+interface FolderProps {
+  className?: string;
+}
+
+const Folder: React.FC<FolderProps> = ({ className }) => {
+  return (
+    <img 
+      src={FolderIconSVG} 
+      alt="Folder" 
+      className={className}
+    />
+  );
+};
+
+// Custom File component using the SVG file with color and extension
+interface FileProps {
+  className?: string;
+  color?: string;
+  extension?: string;
+  size?: 'small' | 'large';
+}
+
+const File: React.FC<FileProps> = ({ className, color = '#6b7280', extension, size = 'small' }) => {
+  const isLarge = size === 'large';
+  const iconSize = isLarge ? 'w-24 h-24' : 'w-4 h-4';
+  const textSize = isLarge ? 'text-xs' : 'text-[8px]';
+  const textWeight = isLarge ? 'font-medium' : 'font-bold';
+  
+  return (
+    <div className={cn("relative flex items-center justify-center", className)}>
+      <img 
+        src={FileIconSVG} 
+        alt="File" 
+        className={iconSize}
+      />
+      {extension && (
+        <div 
+          className={cn(
+            "absolute inset-0 flex items-center justify-center",
+            textSize,
+            textWeight,
+            "text-black font-extrabold text-lg drop-shadow-sm",
+            isLarge ? "mt-1" : "mt-0.5"
+          )}
+        >
+          {extension.toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const FileManager: React.FC<FileManagerProps> = ({ isOpen, activeTabId, onClose }) => {
+  // State
+  const [currentPath, setCurrentPath] = useState('');
+  const [pathInputValue, setPathInputValue] = useState('');
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [clipboard, setClipboard] = useState<{items: string[], operation: string | null}>({ items: [], operation: null });
+  const [fileItems, setFileItems] = useState<FileItem[]>([]);
+  const [statusText, setStatusText] = useState('Ready');
+  const [itemCount, setItemCount] = useState('0 items');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [extensionDistribution, setExtensionDistribution] = useState<ExtensionDistribution | null>(null);
+  const [loadingDistribution, setLoadingDistribution] = useState(false);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Dialog states
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [showNewItemDialog, setShowNewItemDialog] = useState(false);
+  const [newItemType, setNewItemType] = useState('folder');
+  const [renameValue, setRenameValue] = useState('');
+  const [newItemValue, setNewItemValue] = useState('');
+  const [renameOriginalPath, setRenameOriginalPath] = useState('');
+  
+  // Context menu state
+  const [contextMenuVisible, setContextMenuVisible] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  
+  // Refs
+  const pathInputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const newItemInputRef = useRef<HTMLInputElement>(null);
+  const fileListRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const setStatus = useCallback((message: string) => {
+    setStatusText(message);
+  }, []);
+
+  // Date categorization function
+  const getDateCategory = useCallback((date: Date) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    const thisWeekStart = new Date(today.getTime() - (today.getDay() * 24 * 60 * 60 * 1000));
+    const lastWeekStart = new Date(thisWeekStart.getTime() - (7 * 24 * 60 * 60 * 1000));
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const thisYearStart = new Date(now.getFullYear(), 0, 1);
+    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
+
+    const fileDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (fileDate.getTime() === today.getTime()) {
+      return { key: 'today', title: 'Today', order: 0 };
+    } else if (fileDate.getTime() === yesterday.getTime()) {
+      return { key: 'yesterday', title: 'Yesterday', order: 1 };
+    } else if (fileDate >= thisWeekStart) {
+      return { key: 'thisWeek', title: 'This week', order: 2 };
+    } else if (fileDate >= lastWeekStart) {
+      return { key: 'lastWeek', title: 'Last week', order: 3 };
+    } else if (fileDate >= thisMonthStart) {
+      return { key: 'thisMonth', title: 'This month', order: 4 };
+    } else if (fileDate >= lastMonthStart) {
+      return { key: 'lastMonth', title: 'Last month', order: 5 };
+    } else if (fileDate >= thisYearStart) {
+      return { key: 'thisYear', title: 'Earlier this year', order: 6 };
+    } else if (fileDate >= lastYearStart) {
+      return { key: 'lastYear', title: date.getFullYear().toString(), order: 7 };
+    } else {
+      return { key: 'older', title: date.getFullYear().toString(), order: 8 };
+    }
+  }, []);
+
+  // Group files by date
+  const groupFilesByDate = useCallback((items: FileItem[]): DateGroup[] => {
+    const groups: { [key: string]: { title: string; items: FileItem[]; order: number } } = {};
+
+    items.forEach(item => {
+      const category = getDateCategory(item.modified);
+      const key = category.key === 'lastYear' || category.key === 'older' 
+        ? `${category.key}-${item.modified.getFullYear()}`
+        : category.key;
+
+      if (!groups[key]) {
+        groups[key] = {
+          title: category.title,
+          items: [],
+          order: category.key === 'lastYear' || category.key === 'older' 
+            ? category.order + item.modified.getFullYear() / 10000 // Small offset to maintain year order
+            : category.order
+        };
+      }
+      groups[key].items.push(item);
+    });
+
+    // Sort items within each group
+    Object.values(groups).forEach(group => {
+      group.items.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) {
+          return a.isDirectory ? -1 : 1;
+        }
+        return b.modified.getTime() - a.modified.getTime(); // Most recent first
+      });
+    });
+
+    // Convert to array and sort by order
+    return Object.entries(groups)
+      .map(([key, group]) => ({
+        key,
+        title: group.title,
+        items: group.items
+      }))
+      .sort((a, b) => groups[a.key].order - groups[b.key].order);
+  }, [getDateCategory]);
+
+  // Filter files based on search query
+  const filteredItems = searchQuery.trim() 
+    ? fileItems.filter(item =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : fileItems;
+
+  // Group filtered items by date
+  const dateGroups = useMemo(() => groupFilesByDate(filteredItems), [filteredItems, groupFilesByDate]);
+
+  const getSelectedFileDetails = useCallback(() => {
+    if (selectedItems.size !== 1) return null;
+    const selectedPath = Array.from(selectedItems)[0];
+    return filteredItems.find(item => item.path === selectedPath) || null;
+  }, [selectedItems, filteredItems]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  // Get file extension from filename
+  const getFileExtension = useCallback((filename: string): string => {
+    const dotIndex = filename.lastIndexOf('.');
+    if (dotIndex === -1 || dotIndex === 0) return 'No extension';
+    return filename.substring(dotIndex).toLowerCase();
+  }, []);
+
+  // Generate color for extension
+  const getExtensionColor = useCallback((extension: string): string => {
+    const colors = [
+      '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#f59e0b', '#eab308',
+      '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1', '#14b8a6',
+      '#22c55e', '#a855f7', '#facc15', '#2563eb', '#dc2626', '#9333ea',
+      '#0891b2', '#059669', '#d97706', '#7c3aed', '#dc2626', '#0ea5e9'
+    ];
+    
+    // Create a simple hash from the extension string
+    let hash = 0;
+    for (let i = 0; i < extension.length; i++) {
+      const char = extension.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  }, []);
+
+  // Get file type display name from extension using imported JSON
+  const getFileTypeDisplayName = useCallback((extension: string): string => {
+    return extensionMap[extension as keyof typeof extensionMap] || extension.substring(1).toUpperCase();
+  }, []);
+
+  // Analyze folder contents for extension distribution
+  const analyzeFolderDistribution = useCallback(async (folderPath: string): Promise<ExtensionDistribution> => {
+    const distribution: ExtensionDistribution = {};
+
+    try {
+      const items = await readDirectory(folderPath);
+      
+      items.forEach(item => {
+        if (!item.isDirectory) {
+          const extension = getFileExtension(item.name);
+          distribution[extension] = (distribution[extension] || 0) + 1;
+        }
+      });
+      
+      return distribution;
+    } catch (error) {
+      console.error('Error analyzing folder distribution:', error);
+      return {};
+    }
+  }, [getFileExtension]);
+
+  // Load folder distribution when a folder is selected
+  useEffect(() => {
+    const selectedFile = getSelectedFileDetails();
+    if (selectedFile && selectedFile.isDirectory) {
+      setLoadingDistribution(true);
+      analyzeFolderDistribution(selectedFile.path)
+        .then(distribution => {
+          setExtensionDistribution(distribution);
+          setLoadingDistribution(false);
+        })
+        .catch(() => {
+          setExtensionDistribution(null);
+          setLoadingDistribution(false);
+        });
+    } else {
+      setExtensionDistribution(null);
+      setLoadingDistribution(false);
+    }
+  }, [selectedItems, analyzeFolderDistribution, getSelectedFileDetails]);
+
+  // Extension Distribution Progress Bar Component
+  const ExtensionProgressBar: React.FC<{ distribution: ExtensionDistribution }> = ({ distribution }) => {
+    const totalFiles = Object.values(distribution).reduce((sum, count) => sum + count, 0);
+    
+    if (totalFiles === 0) {
+      return (
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">No files in this folder</div>
+        </div>
+      );
+    }
+
+    // Sort extensions by count and take top 12 to avoid clutter
+    const sortedExtensions = Object.entries(distribution)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 12);
+
+    // Calculate "others" if there are more than 12 extensions
+    const displayedCount = sortedExtensions.reduce((sum, [, count]) => sum + count, 0);
+    const othersCount = totalFiles - displayedCount;
+
+    const segments = sortedExtensions.map(([extension, count]) => ({
+      extension,
+      count,
+      percentage: (count / totalFiles) * 100,
+      color: getExtensionColor(extension),
+      displayName: getFileTypeDisplayName(extension)
+    }));
+
+    if (othersCount > 0) {
+      segments.push({
+        extension: 'others',
+        count: othersCount,
+        percentage: (othersCount / totalFiles) * 100,
+        color: '#6b7280',
+        displayName: 'Others'
+      });
+    }
+
+    return (
+      <div className="space-y-3">        
+        {/* Progress Bar */}
+        <div className="w-full h-3 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden flex">
+          {segments.map(({ extension, percentage, color }) => (
+            <div
+              key={extension}
+              className="h-full transition-all duration-300"
+              style={{
+                width: `${percentage}%`,
+                backgroundColor: color
+              }}
+              title={`${getFileTypeDisplayName(extension)}: ${distribution[extension] || 0} files (${percentage.toFixed(1)}%)`}
+            />
+          ))}
+        </div>
+
+        {/* Legend */}
+        <div className="space-y-1 max-h-40 overflow-y-auto">
+          {segments.map(({ extension, count, percentage, color, displayName }) => (
+            <div key={extension} className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div
+                  className="w-3 h-3 rounded-sm flex-shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-foreground truncate" title={displayName}>
+                  {displayName}
+                </span>
+                {extension !== 'others' && extension !== 'No extension' && (
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {extension}
+                  </span>
+                )}
+              </div>
+              <div className="text-muted-foreground flex-shrink-0 ml-2">
+                {count} ({percentage.toFixed(1)}%)
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="text-xs text-muted-foreground pt-1 border-t border-zinc-200 dark:border-zinc-700">
+          Total: {totalFiles} files
+          {Object.keys(distribution).length > 12 && ` • ${Object.keys(distribution).length} different types`}
+        </div>
+      </div>
+    );
+  };
+
+  // Update item count when search changes
+  useEffect(() => {
+    if (fileItems.length > 0) {
+      const totalItems = fileItems.length;
+      const filteredCount = filteredItems.length;
+      if (searchQuery.trim() && filteredCount !== totalItems) {
+        setItemCount(`${filteredCount} of ${totalItems} items`);
+      } else {
+        setItemCount(`${totalItems} items`);
+      }
+    }
+  }, [fileItems.length, filteredItems.length, searchQuery]);
+
+  // Check if file is an image
+  const isImageFile = useCallback((filename: string) => {
+    const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+    return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.svg', '.ico'].includes(ext);
+  }, []);
+
+  // Check if file is a video
+  const isVideoFile = useCallback((filename: string) => {
+    const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+    return ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ts'].includes(ext);
+  }, []);
+
+  // Image Preview Component
+  const ImagePreview: React.FC<{ src: string; alt: string; size: 'small' | 'large'; className?: string }> = ({ src, alt, size, className }) => {
+    const [error, setError] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    const sizeClasses = size === 'large' ? 'max-w-32 max-h-32' : 'max-w-6 max-h-6';
+
+    if (error) {
+      const ext = alt.substring(alt.lastIndexOf('.') + 1);
+      return <File className={className} extension={ext} size={size} />;
+    }
+
+    return (
+      <div className={cn("relative overflow-hidden rounded-sm flex items-center justify-center", sizeClasses, className)}>
+        {loading && (
+          <div className={cn("absolute inset-0 bg-zinc-200 dark:bg-zinc-700 animate-pulse", sizeClasses)} />
+        )}
+        <img
+          src={`file://${src}`}
+          alt={alt}
+          className="object-contain w-full h-full"
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError(true);
+            setLoading(false);
+          }}
+          style={{ display: loading ? 'none' : 'block' }}
+        />
+      </div>
+    );
+  };
+
+  // Video Thumbnail Component
+  const VideoThumbnail: React.FC<{ src: string; alt: string; size: 'small' | 'large'; className?: string }> = ({ src, alt, size, className }) => {
+    const [error, setError] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    const sizeClasses = size === 'large' ? 'max-w-32 max-h-32' : 'max-w-6 max-h-6';
+
+    useEffect(() => {
+      const video = videoRef.current;
+      if (video) {
+        const handleLoadedData = () => {
+          video.currentTime = Math.min(1, video.duration * 0.1); // Seek to 10% or 1 second
+        };
+
+        const handleSeeked = () => {
+          setLoading(false);
+        };
+
+        const handleError = () => {
+          setError(true);
+          setLoading(false);
+        };
+
+        video.addEventListener('loadeddata', handleLoadedData);
+        video.addEventListener('seeked', handleSeeked);
+        video.addEventListener('error', handleError);
+
+        return () => {
+          video.removeEventListener('loadeddata', handleLoadedData);
+          video.removeEventListener('seeked', handleSeeked);
+          video.removeEventListener('error', handleError);
+        };
+      }
+    }, []);
+
+    if (error) {
+      const ext = alt.substring(alt.lastIndexOf('.') + 1);
+      return <File className={className} extension={ext} size={size} />;
+    }
+
+    return (
+      <div className={cn("relative overflow-hidden rounded-sm flex items-center justify-center", sizeClasses, className)}>
+        {loading && (
+          <div className={cn("absolute inset-0 bg-zinc-200 dark:bg-zinc-700 animate-pulse", sizeClasses)} />
+        )}
+        <video
+          ref={videoRef}
+          src={`file://${src}`}
+          className="object-contain w-full h-full"
+          muted
+          preload="metadata"
+          style={{ display: loading ? 'none' : 'block' }}
+        />
+        {!loading && !error && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-black/50 rounded-full p-1">
+              <Play className="w-2 h-2 text-white" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Enhanced file icon function with preview support
+  const getFileIcon = useCallback((filename: string, isDirectory: boolean, filePath: string, size: 'small' | 'large' = 'small') => {
+    const smallIconProps = { className: "w-4 h-4" };
+    const largeIconProps = { className: "w-24 h-24" };
+    const iconProps = size === 'large' ? largeIconProps : smallIconProps;
+    
+    // Use consistent color for all icons
+    const iconColor = "text-zinc-600 dark:text-zinc-400";
+    
+    if (isDirectory) {
+      return <Folder className={`${iconProps.className} ${iconColor}`} />;
+    }
+
+    // Show image preview for image files
+    if (isImageFile(filename)) {
+      return <ImagePreview src={filePath} alt={filename} size={size} />;
+    }
+
+    // Show video thumbnail for video files
+    if (isVideoFile(filename)) {
+      return <VideoThumbnail src={filePath} alt={filename} size={size} />;
+    }
+    
+    // For all other files, use the File component with color and extension
+    const ext = filename.substring(filename.lastIndexOf('.') + 1);
+    
+    return (
+      <File 
+        className={iconProps.className}
+        extension={ext}
+        size={size}
+      />
+    );
+  }, [isImageFile, isVideoFile]);
+
+  // Get file type description
+  const getFileType = useCallback((filename: string) => {
+    const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+    return getFileTypeDisplayName(ext);
+  }, [getFileTypeDisplayName]);
+
+  const formatFileSize = useCallback((bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }, []);
+
+  // Initialize with downloads directory
+  useEffect(() => {
+    const initializeDownloadsDir = async () => {
+      try {
+        const homeResponse = await window.electronAPI.fileManager.homedir();
+        if (homeResponse.success && homeResponse.result) {
+          const joinResponse = await window.electronAPI.fileManager.pathJoin(homeResponse.result, 'Downloads');
+          if (joinResponse.success && joinResponse.result) {
+            const downloadsDir = joinResponse.result;
+            setCurrentPath(downloadsDir);
+            setPathInputValue(downloadsDir);
+            setHistory([downloadsDir]);
+            setHistoryIndex(0);
+            loadDirectory(downloadsDir);
+          } else {
+            const homeDir = homeResponse.result;
+            setCurrentPath(homeDir);
+            setPathInputValue(homeDir);
+            setHistory([homeDir]);
+            setHistoryIndex(0);
+            loadDirectory(homeDir);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get downloads directory:', error);
+        setStatus('Failed to initialize');
+      }
+    };
+    
+    initializeDownloadsDir();
+  }, []);
+
+  const readDirectory = useCallback(async (dirPath: string): Promise<FileItem[]> => {
+    const items: FileItem[] = [];
+    
+    try {
+      const readResponse = await window.electronAPI.fileManager.readdir(dirPath);
+      if (!readResponse.success || !readResponse.files) {
+        throw new Error(readResponse.error || 'Failed to read directory');
+      }
+      
+      for (const file of readResponse.files) {
+        try {
+          const joinResponse = await window.electronAPI.fileManager.pathJoin(dirPath, file);
+          if (!joinResponse.success || !joinResponse.result) continue;
+          
+          const fullPath = joinResponse.result;
+          const statResponse = await window.electronAPI.fileManager.stat(fullPath);
+          
+          if (statResponse.success && statResponse.stats) {
+            items.push({
+              name: file,
+              path: fullPath,
+              isDirectory: statResponse.stats.isDirectory,
+              size: statResponse.stats.isDirectory ? null : statResponse.stats.size,
+              modified: new Date(statResponse.stats.mtime)
+            });
+          }
+        } catch (error) {
+          console.warn(`Error reading ${file}:`, error);
+        }
+      }
+      
+      return items;
+    } catch (error) {
+      console.error('Error in readDirectory:', error);
+      return [];
+    }
+  }, []);
+
+  const loadDirectory = useCallback(async (dirPath: string) => {
+    try {
+      setStatus('Loading...');
+      const items = await readDirectory(dirPath);
+      setFileItems(items);
+      setCurrentPath(dirPath);
+      setPathInputValue(dirPath);
+      setSelectedItems(new Set());
+      setStatus('Ready');
+      setItemCount(`${items.length} items`);
+      // Clear search when loading new directory
+      clearSearch();
+    } catch (error: any) {
+      setStatus(`Error: ${error.message}`);
+      console.error('Error loading directory:', error);
+    }
+  }, [readDirectory, setStatus, clearSearch]);
+
+  const navigateToDirectory = useCallback((dirPath: string) => {
+    if (currentPath !== dirPath) {
+      setHistory(prev => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(dirPath);
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+      });
+    }
+    loadDirectory(dirPath);
+  }, [currentPath, historyIndex, loadDirectory]);
+
+  // Handle path input navigation
+  const handlePathNavigation = useCallback(async (inputPath: string) => {
+    const trimmedPath = inputPath.trim();
+    if (!trimmedPath || trimmedPath === currentPath) {
+      setPathInputValue(currentPath);
+      return;
+    }
+
+    try {
+      setStatus('Navigating...');
+      
+      // Check if the path exists and is a directory
+      const statResponse = await window.electronAPI.fileManager.stat(trimmedPath);
+      if (!statResponse.success || !statResponse.stats) {
+        throw new Error(statResponse.error || 'Path does not exist');
+      }
+
+      if (!statResponse.stats.isDirectory) {
+        throw new Error('Path is not a directory');
+      }
+
+      // Path is valid, navigate to it
+      navigateToDirectory(trimmedPath);
+    } catch (error: any) {
+      setStatus(`Error: ${error.message}`);
+      setPathInputValue(currentPath); // Reset to current path on error
+      console.error('Error navigating to path:', error);
+    }
+  }, [currentPath, navigateToDirectory, setStatus]);
+
+  const openItem = useCallback(async (itemPath: string) => {
+    try {
+      const statResponse = await window.electronAPI.fileManager.stat(itemPath);
+      if (statResponse.success && statResponse.stats) {
+        if (statResponse.stats.isDirectory) {
+          navigateToDirectory(itemPath);
+        } else {
+          await window.electronAPI.fileManager.openPath(itemPath);
+        }
+      }
+    } catch (error: any) {
+      setStatus(`Error opening item: ${error.message}`);
+    }
+  }, [navigateToDirectory, setStatus]);
+
+  const selectItem = useCallback((itemPath: string) => {
+    setSelectedItems(prev => new Set(prev).add(itemPath));
+  }, []);
+
+  const toggleSelection = useCallback((itemPath: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemPath)) {
+        newSet.delete(itemPath);
+      } else {
+        newSet.add(itemPath);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedItems(new Set());
+  }, []);
+
+  const handleFileListClick = useCallback((e: React.MouseEvent, item: FileItem, index: number) => {
+    if (e.ctrlKey) {
+      toggleSelection(item.path);
+    } else if (e.shiftKey && selectedItems.size > 0) {
+      const selectedIndices = Array.from(selectedItems).map(path => {
+        return filteredItems.findIndex(fileItem => fileItem.path === path);
+      });
+      
+      if (selectedIndices.length > 0) {
+        const startIndex = Math.min(...selectedIndices);
+        const endIndex = index;
+        
+        const rangeStart = Math.min(startIndex, endIndex);
+        const rangeEnd = Math.max(startIndex, endIndex);
+        
+        const newSelected = new Set<string>();
+        for (let i = rangeStart; i <= rangeEnd; i++) {
+          if (filteredItems[i]) {
+            newSelected.add(filteredItems[i].path);
+          }
+        }
+        setSelectedItems(newSelected);
+      }
+    } else {
+      setSelectedItems(new Set([item.path]));
+    }
+  }, [selectedItems, filteredItems, toggleSelection]);
+
+  const handleFileListDoubleClick = useCallback((item: FileItem) => {
+    openItem(item.path);
+  }, [openItem]);
+
+  const goBack = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      loadDirectory(history[newIndex]);
+    }
+  }, [historyIndex, history, loadDirectory]);
+
+  const goForward = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      loadDirectory(history[newIndex]);
+    }
+  }, [historyIndex, history, loadDirectory]);
+
+  const refresh = useCallback(() => {
+    loadDirectory(currentPath);
+  }, [loadDirectory, currentPath]);
+
+  const toggleView = useCallback(() => {
+    setViewMode(prev => prev === 'grid' ? 'list' : 'grid');
+  }, []);
+
+  const showNewItemDialogHandler = useCallback(() => {
+    setNewItemType('folder');
+    setNewItemValue('');
+    setShowNewItemDialog(true);
+    setTimeout(() => newItemInputRef.current?.focus(), 100);
+  }, []);
+
+  const confirmNewItem = useCallback(async () => {
+    const name = newItemValue.trim();
+    
+    if (!name) {
+      setShowNewItemDialog(false);
+      return;
+    }
+    
+    try {
+      const joinResponse = await window.electronAPI.fileManager.pathJoin(currentPath, name);
+      if (!joinResponse.success || !joinResponse.result) {
+        throw new Error('Failed to create path');
+      }
+      
+      const newPath = joinResponse.result;
+      
+      if (newItemType === 'folder') {
+        const result = await window.electronAPI.fileManager.mkdir(newPath);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create folder');
+        }
+      } else {
+        const result = await window.electronAPI.fileManager.writeFile(newPath, '');
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create file');
+        }
+      }
+      
+      setShowNewItemDialog(false);
+      refresh();
+      setStatus(`Created ${newItemType}: ${name}`);
+    } catch (error: any) {
+      setStatus(`Error creating ${newItemType}: ${error.message}`);
+    }
+  }, [newItemValue, currentPath, newItemType, refresh, setStatus]);
+
+  const showRenameDialogHandler = useCallback(async () => {
+    if (selectedItems.size !== 1) return;
+    
+    const itemPath = Array.from(selectedItems)[0];
+    
+    try {
+      const basenameResponse = await window.electronAPI.fileManager.pathBasename(itemPath);
+      if (basenameResponse.success && basenameResponse.result) {
+        setRenameValue(basenameResponse.result);
+        setRenameOriginalPath(itemPath);
+        setShowRenameDialog(true);
+        setTimeout(() => renameInputRef.current?.select(), 100);
+      }
+    } catch (error) {
+      console.error('Error preparing rename:', error);
+    }
+  }, [selectedItems]);
+
+  const confirmRename = useCallback(async () => {
+    const newName = renameValue.trim();
+    
+    try {
+      const basenameResponse = await window.electronAPI.fileManager.pathBasename(renameOriginalPath);
+      if (!basenameResponse.success || !basenameResponse.result) {
+        throw new Error('Failed to get original name');
+      }
+      
+      if (!newName || newName === basenameResponse.result) {
+        setShowRenameDialog(false);
+        return;
+      }
+      
+      const dirnameResponse = await window.electronAPI.fileManager.pathDirname(renameOriginalPath);
+      if (!dirnameResponse.success || !dirnameResponse.result) {
+        throw new Error('Failed to get directory');
+      }
+      
+      const joinResponse = await window.electronAPI.fileManager.pathJoin(dirnameResponse.result, newName);
+      if (!joinResponse.success || !joinResponse.result) {
+        throw new Error('Failed to create new path');
+      }
+      
+      const newPath = joinResponse.result;
+      const result = await window.electronAPI.fileManager.rename(renameOriginalPath, newPath);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to rename');
+      }
+      
+      setShowRenameDialog(false);
+      refresh();
+      setStatus(`Renamed to ${newName}`);
+    } catch (error: any) {
+      setStatus(`Error renaming: ${error.message}`);
+    }
+  }, [renameValue, renameOriginalPath, refresh, setStatus]);
+
+  const cutItems = useCallback(() => {
+    setClipboard({
+      items: Array.from(selectedItems),
+      operation: 'cut'
+    });
+    setStatus(`Cut ${selectedItems.size} item(s)`);
+  }, [selectedItems, setStatus]);
+
+  const copyItems = useCallback(() => {
+    setClipboard({
+      items: Array.from(selectedItems),
+      operation: 'copy'
+    });
+    setStatus(`Copied ${selectedItems.size} item(s)`);
+  }, [selectedItems, setStatus]);
+
+  const pasteItems = useCallback(async () => {
+    if (clipboard.items.length === 0) return;
+    
+    try {
+      for (const itemPath of clipboard.items) {
+        const basenameResponse = await window.electronAPI.fileManager.pathBasename(itemPath);
+        if (!basenameResponse.success || !basenameResponse.result) continue;
+        
+        const itemName = basenameResponse.result;
+        const joinResponse = await window.electronAPI.fileManager.pathJoin(currentPath, itemName);
+        if (!joinResponse.success || !joinResponse.result) continue;
+        
+        const destPath = joinResponse.result;
+        
+        if (clipboard.operation === 'cut') {
+          const result = await window.electronAPI.fileManager.rename(itemPath, destPath);
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to move item');
+          }
+        } else if (clipboard.operation === 'copy') {
+          const statResponse = await window.electronAPI.fileManager.stat(itemPath);
+          if (statResponse.success && statResponse.stats) {
+            if (statResponse.stats.isDirectory) {
+              const result = await window.electronAPI.fileManager.copyDirectory(itemPath, destPath);
+              if (!result.success) {
+                throw new Error(result.error || 'Failed to copy directory');
+              }
+            } else {
+              const result = await window.electronAPI.fileManager.copyFile(itemPath, destPath);
+              if (!result.success) {
+                throw new Error(result.error || 'Failed to copy file');
+              }
+            }
+          }
+        }
+      }
+      
+      if (clipboard.operation === 'cut') {
+        setClipboard({ items: [], operation: null });
+      }
+      
+      refresh();
+      setStatus('Paste completed');
+    } catch (error: any) {
+      setStatus(`Error pasting: ${error.message}`);
+    }
+  }, [clipboard, currentPath, refresh, setStatus]);
+
+  const deleteSelected = useCallback(async () => {
+    if (selectedItems.size === 0) return;
+    
+    const items = Array.from(selectedItems);
+    const confirmation = window.confirm(`Are you sure you want to delete ${items.length} item(s)?`);
+    
+    if (!confirmation) return;
+    
+    try {
+      for (const itemPath of items) {
+        const statResponse = await window.electronAPI.fileManager.stat(itemPath);
+        if (statResponse.success && statResponse.stats) {
+          if (statResponse.stats.isDirectory) {
+            const result = await window.electronAPI.fileManager.rmdir(itemPath, { recursive: true });
+            if (!result.success) {
+              throw new Error(result.error || 'Failed to delete directory');
+            }
+          } else {
+            const result = await window.electronAPI.fileManager.unlink(itemPath);
+            if (!result.success) {
+              throw new Error(result.error || 'Failed to delete file');
+            }
+          }
+        }
+      }
+      
+      refresh();
+      setStatus(`Deleted ${items.length} item(s)`);
+    } catch (error: any) {
+      setStatus(`Error deleting: ${error.message}`);
+    }
+  }, [selectedItems, refresh, setStatus]);
+
+  const selectAll = useCallback(() => {
+    const allPaths = new Set(filteredItems.map(item => item.path));
+    setSelectedItems(allPaths);
+  }, [filteredItems]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, item?: FileItem) => {
+    e.preventDefault();
+    
+    if (item && !selectedItems.has(item.path)) {
+      setSelectedItems(new Set([item.path]));
+    }
+    
+    setContextMenuPosition({ x: e.pageX, y: e.pageY });
+    setContextMenuVisible(true);
+  }, [selectedItems]);
+
+  const handleContextMenuAction = useCallback((action: string) => {
+    setContextMenuVisible(false);
+    
+    switch (action) {
+      case 'open':
+        if (selectedItems.size === 1) {
+          openItem(Array.from(selectedItems)[0]);
+        }
+        break;
+      case 'rename':
+        if (selectedItems.size === 1) {
+          showRenameDialogHandler();
+        }
+        break;
+      case 'cut':
+        cutItems();
+        break;
+      case 'copy':
+        copyItems();
+        break;
+      case 'paste':
+        pasteItems();
+        break;
+      case 'delete':
+        deleteSelected();
+        break;
+    }
+  }, [selectedItems, openItem, showRenameDialogHandler, cutItems, copyItems, pasteItems, deleteSelected]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    switch (e.key) {
+      case 'Delete':
+        if (selectedItems.size > 0) {
+          e.preventDefault();
+          deleteSelected();
+        }
+        break;
+      case 'F2':
+        if (selectedItems.size === 1) {
+          e.preventDefault();
+          showRenameDialogHandler();
+        }
+        break;
+      case 'F5':
+        e.preventDefault();
+        refresh();
+        break;
+      case 'Escape':
+        clearSelection();
+        setContextMenuVisible(false);
+        if (searchQuery) {
+          clearSearch();
+        }
+        break;
+      case 'a':
+        if (e.ctrlKey) {
+          e.preventDefault();
+          selectAll();
+        }
+        break;
+      case 'c':
+        if (e.ctrlKey && selectedItems.size > 0) {
+          e.preventDefault();
+          copyItems();
+        }
+        break;
+      case 'x':
+        if (e.ctrlKey && selectedItems.size > 0) {
+          e.preventDefault();
+          cutItems();
+        }
+        break;
+      case 'v':
+        if (e.ctrlKey && clipboard.items.length > 0) {
+          e.preventDefault();
+          pasteItems();
+        }
+        break;
+      case 'f':
+        if (e.ctrlKey) {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+        }
+        break;
+    }
+  }, [selectedItems, deleteSelected, showRenameDialogHandler, refresh, clearSelection, selectAll, copyItems, cutItems, clipboard.items.length, pasteItems, clearSearch]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuVisible) {
+        setContextMenuVisible(false);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [contextMenuVisible]);
+
+  const renderDetailsPanel = () => {
+    const selectedFile = getSelectedFileDetails();
+    
+    if (!selectedFile) return null;
+
+    return (
+      <div className="w-80 bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-lg border-l border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden flex flex-col">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* File Preview */}
+          <div className="text-center space-y-3">
+            <div className="flex justify-center">
+              <div className="p-4 bg-zinc-100/50 dark:bg-zinc-800/50 rounded-xl">
+                {getFileIcon(selectedFile.name, selectedFile.isDirectory, selectedFile.path, 'large')}
+              </div>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-base break-words leading-tight">
+                {selectedFile.name}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {selectedFile.isDirectory ? 'Folder' : getFileType(selectedFile.name)}
+              </p>
+            </div>
+          </div>
+
+          {/* Extension Distribution - Only for folders */}
+          {selectedFile.isDirectory && (
+            <div className="bg-zinc-100/30 dark:bg-zinc-800/30 rounded-lg p-3">
+              <div className="text-sm font-medium text-foreground mb-3">File Distribution</div>
+              {loadingDistribution ? (
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">Analyzing folder contents...</div>
+                  <div className="w-full h-3 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-zinc-400 dark:bg-zinc-600 animate-pulse rounded-full" />
+                  </div>
+                </div>
+              ) : extensionDistribution ? (
+                <ExtensionProgressBar distribution={extensionDistribution} />
+              ) : (
+                <div className="text-xs text-muted-foreground">Unable to analyze folder contents</div>
+              )}
+            </div>
+          )}
+
+          {/* File Information - No Background */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <HardDrives className="w-3.5 h-3.5 text-muted-foreground" />
+              <div className="flex-1">
+                <span className="text-xs text-muted-foreground">Size: </span>
+                <span className="text-sm text-foreground font-medium">
+                  {selectedFile.isDirectory ? '—' : formatFileSize(selectedFile.size!)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+              <div className="flex-1">
+                <span className="text-xs text-muted-foreground">Modified: </span>
+                <span className="text-sm text-foreground font-medium">
+                  {selectedFile.modified.toLocaleDateString()} {selectedFile.modified.toLocaleTimeString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <FolderIcon className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs text-muted-foreground">Location: </span>
+                <p className="text-xs text-foreground break-all font-mono">
+                  {selectedFile.path}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons - Icons Only in Single Row */}
+          <div className="flex gap-1">
+            <button 
+              onClick={() => openItem(selectedFile.path)}
+              className="p-2 bg-zinc-100/50 dark:bg-zinc-800/50 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 rounded-md transition-colors duration-200"
+              title="Open"
+            >
+              <Play className="w-4 h-4 text-muted-foreground" />
+            </button>
+            
+            <button 
+              onClick={showRenameDialogHandler}
+              className="p-2 bg-zinc-100/50 dark:bg-zinc-800/50 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 rounded-md transition-colors duration-200"
+              title="Rename"
+            >
+              <PencilSimple className="w-4 h-4 text-muted-foreground" />
+            </button>
+            
+            <button 
+              onClick={cutItems}
+              disabled={selectedItems.size === 0}
+              className="p-2 bg-zinc-100/50 dark:bg-zinc-800/50 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors duration-200"
+              title="Cut"
+            >
+              <Scissors className="w-4 h-4 text-muted-foreground" />
+            </button>
+            
+            <button 
+              onClick={copyItems}
+              disabled={selectedItems.size === 0}
+              className="p-2 bg-zinc-100/50 dark:bg-zinc-800/50 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors duration-200"
+              title="Copy"
+            >
+              <Copy className="w-4 h-4 text-muted-foreground" />
+            </button>
+            
+            <button 
+              onClick={pasteItems}
+              disabled={clipboard.items.length === 0}
+              className="p-2 bg-zinc-100/50 dark:bg-zinc-800/50 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 disabled:opacity-50 disabled:cursor-not-allowed rounded-md transition-colors duration-200"
+              title="Paste"
+            >
+              <ClipboardText className="w-4 h-4 text-muted-foreground" />
+            </button>
+            
+            <button 
+              onClick={deleteSelected}
+              className="p-2 bg-red-50/80 dark:bg-red-950/30 hover:bg-red-100/80 dark:hover:bg-red-950/50 text-red-600 dark:text-red-400 rounded-md transition-colors duration-200"
+              title="Delete"
+            >
+              <Trash className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGridView = () => (
+    <div 
+      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          clearSelection();
+        }
+      }}
+    >
+      {dateGroups.map(group => (
+        <React.Fragment key={group.key}>
+          {/* Simple Date Header */}
+          <div className="col-span-full">
+            <h3 className="text-sm font-medium text-muted-foreground py-2 border-b border-zinc-200 dark:border-zinc-700">
+              {group.title} ({group.items.length})
+            </h3>
+          </div>
+          
+          {group.items.map((item, index) => {
+            // Calculate the global index for shift-selection
+            const globalIndex = dateGroups
+              .slice(0, dateGroups.indexOf(group))
+              .reduce((acc, g) => acc + g.items.length, 0) + index;
+            
+            const isSelected = selectedItems.has(item.path);
+            const isCut = clipboard.operation === 'cut' && clipboard.items.includes(item.path);
+            
+            return (
+              <ContextMenu key={item.path}>
+                <ContextMenuTrigger asChild>
+                  <div 
+                    data-item-index={globalIndex}
+                    className={`
+                      flex flex-col items-center p-3 rounded-lg cursor-pointer transition-all duration-200 user-select-none min-h-[120px] justify-center
+                      ${isSelected 
+                        ? 'bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-500' 
+                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      }
+                      ${isCut ? 'opacity-50' : ''}
+                    `}
+                    onClick={(e) => handleFileListClick(e, item, globalIndex)}
+                    onDoubleClick={() => handleFileListDoubleClick(item)}
+                    onContextMenu={(e) => handleContextMenu(e, item)}
+                    title={`${item.name}\n${item.isDirectory ? 'Folder' : getFileType(item.name)}${item.size ? `\n${formatFileSize(item.size)}` : ''}\n${item.modified.toLocaleDateString()} ${item.modified.toLocaleTimeString()}`}
+                  >
+                    <div className="mb-2">
+                      {getFileIcon(item.name, item.isDirectory, item.path, 'large')}
+                    </div>
+                    <div className="text-center">
+                      <div className={`text-sm font-medium ${isSelected ? 'text-yellow-900 dark:text-yellow-100' : 'text-foreground'} line-clamp-2 max-w-20 break-words`}>
+                        {item.name}
+                      </div>
+                      {!item.isDirectory && item.size && (
+                        <div className={`text-xs ${isSelected ? 'text-yellow-700 dark:text-yellow-300' : 'text-muted-foreground'} mt-1`}>
+                          {formatFileSize(item.size)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('open')}>Open</ContextMenuItem>}
+                  {selectedItems.size === 1 && <ContextMenuItem onClick={() => handleContextMenuAction('rename')}>Rename</ContextMenuItem>}
+                  {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('cut')}>Cut</ContextMenuItem>}
+                  {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('copy')}>Copy</ContextMenuItem>}
+                  {clipboard.items.length > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('paste')}>Paste</ContextMenuItem>}
+                  <ContextMenuSeparator />
+                  {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('delete')}>Delete</ContextMenuItem>}
+                </ContextMenuContent>
+              </ContextMenu>
+            );
+          })}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+
+  const renderListView = () => (
+    <>
+      <div className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 px-3 py-2 grid grid-cols-4 gap-3 text-sm font-medium text-foreground">
+        <div>Name</div>
+        <div>Type</div>
+        <div>Size</div>
+        <div>Modified</div>
+      </div>
+      
+      <div 
+        className="flex-1 overflow-y-auto p-1 sidebar-scrollbar"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            clearSelection();
+          }
+        }}
+      >
+        {dateGroups.map(group => (
+          <div key={group.key}>
+            {/* Simple Date Header */}
+            <div className="px-3 py-2">
+              <h3 className="text-sm font-medium text-muted-foreground border-b border-zinc-200 dark:border-zinc-700 pb-1">
+                {group.title} ({group.items.length})
+              </h3>
+            </div>
+            
+            {group.items.map((item, index) => {
+              // Calculate the global index for shift-selection
+              const globalIndex = dateGroups
+                .slice(0, dateGroups.indexOf(group))
+                .reduce((acc, g) => acc + g.items.length, 0) + index;
+              
+              const isSelected = selectedItems.has(item.path);
+              const isCut = clipboard.operation === 'cut' && clipboard.items.includes(item.path);
+              
+              return (
+                <ContextMenu key={item.path}>
+                  <ContextMenuTrigger asChild>
+                    <div 
+                      data-item-index={globalIndex}
+                      className={`
+                        grid grid-cols-4 gap-3 sidebar-scrollbar px-3 py-2 rounded-lg cursor-pointer items-center transition-all duration-200 user-select-none
+                        ${isSelected 
+                          ? 'bg-zinc-700 text-white' 
+                          : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'
+                        }
+                        ${isCut ? 'opacity-50' : ''}
+                      `}
+                      onClick={(e) => handleFileListClick(e, item, globalIndex)}
+                      onDoubleClick={() => handleFileListDoubleClick(item)}
+                      onContextMenu={(e) => handleContextMenu(e, item)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {getFileIcon(item.name, item.isDirectory, item.path)}
+                        <span className="truncate text-sm">{item.name}</span>
+                      </div>
+                      <div className={`text-xs ${isSelected ? 'text-zinc-300' : 'text-muted-foreground'} truncate`}>
+                        {item.isDirectory ? 'Folder' : getFileType(item.name)}
+                      </div>
+                      <div className={`text-xs ${isSelected ? 'text-zinc-300' : 'text-muted-foreground'} truncate`}>
+                        {item.isDirectory ? '' : formatFileSize(item.size!)}
+                      </div>
+                      <div className={`text-xs ${isSelected ? 'text-zinc-300' : 'text-muted-foreground'} truncate`}>
+                        {item.modified.toLocaleDateString()} {item.modified.toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('open')}>Open</ContextMenuItem>}
+                    {selectedItems.size === 1 && <ContextMenuItem onClick={() => handleContextMenuAction('rename')}>Rename</ContextMenuItem>}
+                    {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('cut')}>Cut</ContextMenuItem>}
+                    {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('copy')}>Copy</ContextMenuItem>}
+                    {clipboard.items.length > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('paste')}>Paste</ContextMenuItem>}
+                    <ContextMenuSeparator />
+                    {selectedItems.size > 0 && <ContextMenuItem onClick={() => handleContextMenuAction('delete')}>Delete</ContextMenuItem>}
+                  </ContextMenuContent>
+                </ContextMenu>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  const canGoBack = historyIndex > 0;
+  const canGoForward = historyIndex < history.length - 1;
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div className="h-full bg-zinc-100 dark:bg-zinc-950 text-foreground font-sans overflow-hidden flex flex-col">
+        {/* Navigation Bar */}
+        <div className="bg-zinc-50/80 dark:bg-zinc-900/80 backdrop-blur-lg border-b border-zinc-200/50 dark:border-zinc-700/50 p-3 flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            title="Close File Manager"
+            className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors duration-200"
+          >
+            <SignOut className="size-[18px] text-foreground" />
+          </button>
+          
+          <div className="flex items-center bg-zinc-100/50 dark:bg-zinc-800/50 rounded-lg p-1">
+            <button 
+              onClick={goBack}
+              disabled={!canGoBack}
+              title="Back"
+              className={cn(
+                "inline-flex items-center justify-center p-1.5 rounded-md transition-colors duration-200",
+                canGoBack 
+                  ? "hover:bg-zinc-200 dark:hover:bg-zinc-700 text-foreground" 
+                  : "text-foreground/30 cursor-not-allowed"
+              )}
+            >
+              <CaretLeft className="size-[18px]" />
+            </button>
+            
+            <button 
+              onClick={goForward}
+              disabled={!canGoForward}
+              title="Forward"
+              className={cn(
+                "inline-flex items-center justify-center p-1.5 rounded-md transition-colors duration-200",
+                canGoForward 
+                  ? "hover:bg-zinc-200 dark:hover:bg-zinc-700 text-foreground" 
+                  : "text-foreground/30 cursor-not-allowed"
+              )}
+            >
+              <CaretRight className="size-[18px]" />
+            </button>
+            
+            <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-600 mx-1" />
+            
+            <button 
+              onClick={refresh} 
+              title="Refresh"
+              className="inline-flex items-center justify-center p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors duration-200"
+            >
+              <ArrowClockwise className="size-[18px] text-foreground" />
+            </button>
+          </div>
+          
+          <div className="flex-1 relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+              <Folder className="size-4 text-foreground/60" />
+            </div>
+            <Input 
+              ref={pathInputRef}
+              value={pathInputValue}
+              onChange={(e) => setPathInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handlePathNavigation(pathInputValue);
+                }
+                if (e.key === 'Escape') {
+                  setPathInputValue(currentPath);
+                  pathInputRef.current?.blur();
+                }
+              }}
+              onBlur={() => {
+                // Reset to current path if user didn't press Enter
+                if (pathInputValue !== currentPath) {
+                  setPathInputValue(currentPath);
+                }
+              }}
+              className={cn(
+                "pl-10 pr-44 h-9",
+                "bg-zinc-50/80 dark:bg-zinc-800/80 backdrop-blur-sm",
+                "border-zinc-200/50 dark:border-zinc-700/50",
+                "focus:border-zinc-300 dark:focus:border-zinc-600",
+                "text-sm text-foreground/80",
+                "transition-all duration-200"
+              )}
+              placeholder="Type a path and press Enter to navigate..."
+              title="Type a path and press Enter to navigate, or Escape to reset"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {/* Search Input */}
+              <div className="relative">
+                <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
+                  <MagnifyingGlass className="size-3 text-zinc-500 dark:text-zinc-400" />
+                </div>
+                <Input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      clearSearch();
+                    }
+                  }}
+                  className={cn(
+                    "w-32 h-7 pl-6 pr-2 text-xs",
+                    "bg-zinc-200/50 dark:bg-zinc-700/50 backdrop-blur-sm",
+                    "border-zinc-300/50 dark:border-zinc-600/50",
+                    "focus:border-zinc-400 dark:focus:border-zinc-500",
+                    "placeholder:text-zinc-500 dark:placeholder:text-zinc-400",
+                    "transition-all duration-200"
+                  )}
+                  placeholder="Search files..."
+                  title="Search files in current directory (Ctrl+F)"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:bg-zinc-300/50 dark:hover:bg-zinc-600/50 rounded transition-colors duration-200"
+                    title="Clear search"
+                  >
+                    <X className="size-2.5 text-zinc-500 dark:text-zinc-400" />
+                  </button>
+                )}
+              </div>
+              
+              <span className="px-2 py-1 text-xs bg-zinc-200/80 dark:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 rounded-full font-medium backdrop-blur-sm">
+                {statusText}
+              </span>
+              <span className="px-2 py-1 text-xs bg-yellow-100/80 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-full font-medium backdrop-blur-sm">
+                {itemCount}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-zinc-100/50 dark:bg-zinc-800/50 rounded-lg p-1">
+              <button 
+                onClick={toggleView} 
+                title={`Switch to ${viewMode === 'grid' ? 'List' : 'Grid'} View`}
+                className="inline-flex items-center justify-center p-1.5 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors duration-200"
+              >
+                {viewMode === 'grid' ? (
+                  <List className="size-[18px] text-foreground" />
+                ) : (
+                  <GridFour className="size-[18px] text-foreground" />
+                )}
+              </button>
+            </div>
+            
+            <button 
+              onClick={showNewItemDialogHandler} 
+              title="Create New"
+              className={cn(
+                "inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg",
+                "bg-zinc-100/50 dark:bg-zinc-800/50",
+                "hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80",
+                "transition-colors duration-200",
+                "text-sm font-medium text-foreground"
+              )}
+            >
+              <Plus className="size-[18px]" />
+              <span>New</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 bg-zinc-50 dark:bg-zinc-900 overflow-hidden flex">
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div 
+              className="flex-1 overflow-y-auto sidebar-scrollbar" 
+              ref={fileListRef}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  clearSelection();
+                }
+              }}
+            >
+              {filteredItems.length === 0 && searchQuery.trim() ? (
+                <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                  <MagnifyingGlass className="size-12 text-zinc-400 dark:text-zinc-600 mb-4" />
+                  <h3 className="text-lg font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                    No files found
+                  </h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-500 mb-4">
+                    No files match "{searchQuery}" in this directory.
+                  </p>
+                  <button
+                    onClick={clearSearch}
+                    className="px-4 py-2 text-sm bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors duration-200"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {viewMode === 'grid' ? renderGridView() : renderListView()}
+                </>
+              )}
+            </div>
+          </div>
+
+          {selectedItems.size === 1 && renderDetailsPanel()}
+        </div>
+
+        {/* Context Menu */}
+        {contextMenuVisible && (
+          <div 
+            className="fixed bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg z-50 min-w-[150px] py-1"
+            style={{ 
+              left: contextMenuPosition.x, 
+              top: contextMenuPosition.y 
+            }}
+          >
+            {selectedItems.size > 0 && (
+              <div className="px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer" onClick={() => handleContextMenuAction('open')}>
+                Open
+              </div>
+            )}
+            {selectedItems.size === 1 && (
+              <div className="px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer" onClick={() => handleContextMenuAction('rename')}>
+                Rename
+              </div>
+            )}
+            {selectedItems.size > 0 && (
+              <div className="px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer" onClick={() => handleContextMenuAction('cut')}>
+                Cut
+              </div>
+            )}
+            {selectedItems.size > 0 && (
+              <div className="px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer" onClick={() => handleContextMenuAction('copy')}>
+                Copy
+              </div>
+            )}
+            {clipboard.items.length > 0 && (
+              <div className="px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer" onClick={() => handleContextMenuAction('paste')}>
+                Paste
+              </div>
+            )}
+            <div className="h-px bg-zinc-200 dark:bg-zinc-600 my-1"></div>
+            {selectedItems.size > 0 && (
+              <div className="px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer" onClick={() => handleContextMenuAction('delete')}>
+                Delete
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Rename Dialog */}
+        {showRenameDialog && (
+          <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+            <DialogContent className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700">
+              <DialogHeader>
+                <DialogTitle>Rename Item</DialogTitle>
+              </DialogHeader>
+              <Input 
+                ref={renameInputRef}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmRename();
+                  if (e.key === 'Escape') setShowRenameDialog(false);
+                }}
+                placeholder="Enter new name"
+                className="bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
+              />
+              <div className="flex gap-2 justify-end mt-4">
+                <Button onClick={confirmRename} className="bg-zinc-900 hover:bg-zinc-800 text-white">OK</Button>
+                <Button variant="outline" onClick={() => setShowRenameDialog(false)}>Cancel</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* New Item Dialog */}
+        {showNewItemDialog && (
+          <Dialog open={showNewItemDialog} onOpenChange={setShowNewItemDialog}>
+            <DialogContent className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700">
+              <DialogHeader>
+                <DialogTitle>Create New Item</DialogTitle>
+              </DialogHeader>
+              
+              <div className="flex gap-4 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="itemType"
+                    value="folder"
+                    checked={newItemType === 'folder'}
+                    onChange={(e) => setNewItemType(e.target.value)}
+                    className="w-4 h-4"
+                  />
+                  <Folder className="w-4 h-4" />
+                  <span>Folder</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="itemType"
+                    value="file"
+                    checked={newItemType === 'file'}
+                    onChange={(e) => setNewItemType(e.target.value)}
+                    className="w-4 h-4"
+                  />
+                  <File className="w-4 h-4" color="#6b7280" extension="TXT" size="small" />
+                  <span>File</span>
+                </label>
+              </div>
+
+              <Input 
+                ref={newItemInputRef}
+                value={newItemValue}
+                onChange={(e) => setNewItemValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmNewItem();
+                  if (e.key === 'Escape') setShowNewItemDialog(false);
+                }}
+                placeholder={`Enter ${newItemType} name`}
+                className="bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
+              />
+              <div className="flex gap-2 justify-end mt-4">
+                <Button onClick={confirmNewItem} className="bg-zinc-900 hover:bg-zinc-800 text-white">Create</Button>
+                <Button variant="outline" onClick={() => setShowNewItemDialog(false)}>Cancel</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    </>
+  );
+};
+
+export default FileManager;

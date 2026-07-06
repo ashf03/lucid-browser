@@ -1,0 +1,10 @@
+{
+  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*", "src/types/types.ts"],
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "es2020",
+    "types": ["electron-vite/node"],
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+  }
+}

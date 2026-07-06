@@ -1,0 +1,10 @@
+node_modules
+dist
+out
+.DS_Store
+*.log*
+
+# Environment files with secrets
+.env
+.env.*
+!.env.example

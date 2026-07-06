@@ -1,0 +1,497 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+
+
+  :root {
+
+    --color-zinc-50: 243 243 243;
+    --color-zinc-100: 232 232 232;
+    --color-zinc-200: 197 197 197;
+    --color-zinc-300: 161 161 162;
+    --color-zinc-400: 91 91 92;
+    --color-zinc-500: 21 21 22;
+    --color-zinc-600: 19 19 20;
+    --color-zinc-700: 13 13 13;
+    --color-zinc-800: 9 9 10;
+    --color-zinc-900: 6 6 7;
+
+
+    --color-gray-100-value: 0,0%,95%;
+    --color-gray-200-value: 0,0%,92%;
+    --color-gray-300-value: 0,0%,90%;
+    --color-gray-400-value: 0,0%,92%;
+    --color-gray-500-value: 0,0%,79%;
+    --color-gray-600-value: 0,0%,66%;
+    --color-gray-700-value: 0,0%,56%;
+    --color-gray-800-value: 0,0%,49%;
+    --color-gray-900-value: 0,0%,40%;
+    --color-gray-1000-value: 0,0%,9%;
+    --color-blue-100-value: 212,100%,97%;
+    --color-blue-200-value: 210,100%,96%;
+    --color-blue-300-value: 210,100%,94%;
+    --color-blue-400-value: 209,100%,90%;
+    --color-blue-500-value: 209,100%,80%;
+    --color-blue-600-value: 208,100%,66%;
+    --color-blue-700-value: 212,100%,48%;
+    --color-blue-800-value: 212,100%,41%;
+    --color-blue-900-value: 211,100%,42%;
+    --color-blue-1000-value: 211,100%,15%;
+    --color-red-100-value: 0,100%,97%;
+    --color-red-200-value: 0,100%,96%;
+    --color-red-300-value: 0,100%,95%;
+    --color-red-400-value: 0,90%,92%;
+    --color-red-500-value: 0,82%,85%;
+    --color-red-600-value: 359,90%,71%;
+    --color-red-700-value: 358,75%,59%;
+    --color-red-800-value: 358,70%,52%;
+    --color-red-900-value: 358,66%,48%;
+    --color-red-1000-value: 355,49%,15%;
+    --color-amber-100-value: 39,100%,95%;
+    --color-amber-200-value: 44,100%,92%;
+    --color-amber-300-value: 43,96%,90%;
+    --color-amber-400-value: 42,100%,78%;
+    --color-amber-500-value: 38,100%,71%;
+    --color-amber-600-value: 36,90%,62%;
+    --color-amber-700-value: 39,100%,57%;
+    --color-amber-800-value: 35,100%,52%;
+    --color-amber-900-value: 30,100%,32%;
+    --color-amber-1000-value: 20,79%,17%;
+    --color-green-100-value: 120,60%,96%;
+    --color-green-200-value: 120,60%,95%;
+    --color-green-300-value: 120,60%,91%;
+    --color-green-400-value: 122,60%,86%;
+    --color-green-500-value: 124,60%,75%;
+    --color-green-600-value: 125,60%,64%;
+    --color-green-700-value: 131,41%,46%;
+    --color-green-800-value: 132,43%,39%;
+    --color-green-900-value: 133,50%,32%;
+    --color-green-1000-value: 128,29%,15%;
+    --color-teal-100-value: 169,70%,96%;
+    --color-teal-200-value: 167,70%,94%;
+    --color-teal-300-value: 168,70%,90%;
+    --color-teal-400-value: 170,70%,85%;
+    --color-teal-500-value: 170,70%,72%;
+    --color-teal-600-value: 170,70%,57%;
+    --color-teal-700-value: 173,80%,36%;
+    --color-teal-800-value: 173,83%,30%;
+    --color-teal-900-value: 174,91%,25%;
+    --color-teal-1000-value: 171,80%,13%;
+    --color-purple-100-value: 276,100%,97%;
+    --color-purple-200-value: 277,87%,97%;
+    --color-purple-300-value: 274,78%,95%;
+    --color-purple-400-value: 276,71%,92%;
+    --color-purple-500-value: 274,70%,82%;
+    --color-purple-600-value: 273,72%,73%;
+    --color-purple-700-value: 272,51%,54%;
+    --color-purple-800-value: 272,47%,45%;
+    --color-purple-900-value: 274,71%,43%;
+    --color-purple-1000-value: 276,100%,15%;
+    --color-pink-100-value: 330,100%,96%;
+    --color-pink-200-value: 340,90%,96%;
+    --color-pink-300-value: 340,82%,94%;
+    --color-pink-400-value: 341,76%,91%;
+    --color-pink-500-value: 340,75%,84%;
+    --color-pink-600-value: 341,75%,73%;
+    --color-pink-700-value: 336,80%,58%;
+    --color-pink-800-value: 336,74%,51%;
+    --color-pink-900-value: 336,65%,45%;
+    --color-pink-1000-value: 333,74%,15%;
+    --color-gray-alpha-100: rgba(0,0,0,.05);
+    --color-gray-alpha-200: rgba(0,0,0,.08);
+    --color-gray-alpha-300: rgba(0,0,0,.1);
+    --color-gray-alpha-400: rgba(0,0,0,.08);
+    --color-gray-alpha-500: rgba(0,0,0,.21);
+    --color-gray-alpha-600: rgba(0,0,0,.34);
+    --color-gray-alpha-700: rgba(0,0,0,.44);
+    --color-gray-alpha-800: rgba(0,0,0,.51);
+    --color-gray-alpha-900: rgba(0,0,0,.61);
+    --color-gray-alpha-1000: rgba(0,0,0,.91);
+    --color-background-100: #fff;
+    --color-background-200: #fafafa;
+    --color-focus-border: 0 0 0 1px var(--color-gray-alpha-600),0px 0px 0px 4px rgba(0,0,0,.16);
+    --color-focus-color: var(--color-blue-700);
+    --vaul-overlay-background: 255,255,255;
+    --vaul-overlay-background-start: transparent;
+    --vaul-overlay-background-end: rgba(0,0,0,.4)
+
+    --background: #fff;
+    --background: 0 0% 89.8%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 240 4.8% 95.9%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 4.9% 83.9%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%; 
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+
+  * {
+    @apply border-border;
+    font-family: 'Geist Variable', sans-serif;
+  }
+
+  body {
+    @apply text-foreground;
+    font-family: 'Geist Variable', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom Scrollbar Styles */
+.sidebar-scrollbar {
+  scrollbar-width: thin;  /* Firefox */
+  scrollbar-color: var(--scrollbar-thumb) transparent;  /* Firefox */
+}
+
+/* Chrome, Edge, and Safari */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 1px;
+  height: 1px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 100vh;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(212 212 216);  /* Light mode */
+  border-radius: 100vh;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(212 212 216);  /* Light mode hover */
+}
+
+/* Dark mode scrollbar */
+.dark .sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(24 24 27);  /* Dark mode */
+}
+
+.dark .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(24 24 27);  /* Dark mode hover */
+}
+
+/* Hide scrollbar when not hovering */
+.sidebar-scrollbar {
+  --scrollbar-thumb: rgb(212 212 216);  /* Light mode */
+}
+
+.dark .sidebar-scrollbar {
+  --scrollbar-thumb: rgb(24 24 27);  /* Dark mode */
+}
+
+/* Optional: Hide scrollbar when not hovering */
+.sidebar-scrollbar:not(:hover)::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* Ensure smooth scrolling */
+.sidebar-scrollbar {
+  scroll-behavior: smooth;
+}
+
+[contenteditable].data-placeholder:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af; /* This is the equivalent of text-gray-400 in Tailwind */
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Make sure empty divs are treated as empty when they only contain <br> */
+[contenteditable].data-placeholder:has(br:only-child):before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+  position: absolute;
+}
+
+input[type="color"] {
+  -webkit-appearance: none;
+  border: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0; 
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%; /* For the rounded-full effect */
+}
+
+/* Add these styles to your CSS file */
+
+/* Todo list item styling */
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 4px;
+  padding: 4px 0;
+}
+
+.todo-item:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dark .todo-item:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Style for checked todo items */
+.todo-item.checked .todo-content {
+  text-decoration: line-through;
+  color: rgba(107, 114, 128, 0.8);
+}
+
+/* Checkbox styles */
+.todo-checkbox {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  margin-right: 8px;
+  margin-top: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(59, 130, 246);
+}
+
+/* Content focus styles */
+.todo-content:focus {
+  outline: none;
+}
+
+.todo-content[data-placeholder]:empty:after {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Add todo button styling */
+.todo-add-button {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  margin-left: 28px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  background-color: transparent;
+  transition: background-color 0.2s;
+}
+
+.todo-add-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #374151;
+}
+
+.dark .todo-add-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
+}
+
+.todo-add-button span {
+  margin-right: 4px;
+  font-size: 1rem;
+}
+
+@theme inline {
+  --animate-first: moveVertical 30s ease infinite;
+  --animate-second: moveInCircle 20s reverse infinite;
+  --animate-third: moveInCircle 40s linear infinite;
+  --animate-fourth: moveHorizontal 40s ease infinite;
+  --animate-fifth: moveInCircle 20s ease infinite;
+ 
+  @keyframes moveHorizontal {
+    0% {
+      transform: translateX(-50%) translateY(-10%);
+    }
+    50% {
+      transform: translateX(50%) translateY(10%);
+    }
+    100% {
+      transform: translateX(-50%) translateY(-10%);
+    }
+  }
+ 
+  @keyframes moveInCircle {
+    0% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(180deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+ 
+  @keyframes moveVertical {
+    0% {
+      transform: translateY(-50%);
+    }
+    50% {
+      transform: translateY(50%);
+    }
+    100% {
+      transform: translateY(-50%);
+    }
+  }
+}
+
+.code-file-container .overflow-auto::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-file-container .overflow-auto::-webkit-scrollbar-track {
+  background: rgba(39, 39, 42, 0.5);
+}
+
+.code-file-container .overflow-auto::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.5);
+  border-radius: 4px;
+}
+
+.code-file-container .overflow-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(161, 161, 170, 0.8);
+}
+
+/* Ensure Prism.js line numbers work correctly */
+.line-numbers {
+  position: relative;
+  padding-left: 3.8em;
+  counter-reset: linenumber;
+}
+
+.line-numbers > code {
+  position: relative;
+  white-space: inherit;
+}
+
+.line-numbers .line-numbers-rows {
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  font-size: 100%;
+  left: -3.8em;
+  width: 3em;
+  letter-spacing: -1px;
+  border-right: 1px solid #999;
+  user-select: none;
+  counter-reset: linenumber;
+}
+
+.line-numbers .line-numbers-rows > span {
+  pointer-events: none;
+  display: block;
+  counter-increment: linenumber;
+}
+
+.line-numbers .line-numbers-rows > span:before {
+  content: counter(linenumber);
+  color: #999;
+  display: block;
+  padding-right: 0.8em;
+  text-align: right;
+}

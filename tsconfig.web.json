@@ -1,0 +1,19 @@
+{
+  "include": [
+    "src/renderer/src/env.d.ts",
+    "src/renderer/src/**/*",
+    "src/renderer/src/**/*.tsx",
+    "src/preload/*.d.ts"
+  ],
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "es2020",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "paths": {
+      "@renderer/*": ["src/renderer/src/*"]
+    }
+  }
+}
