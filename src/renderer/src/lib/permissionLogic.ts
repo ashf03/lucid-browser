@@ -1,3 +1,7 @@
+/**
+ * Permission prompt helpers for the renderer UI.
+ * Formats request details and sends grant/deny responses back to main via IPC.
+ */
 export interface PermissionRequest {
   id: number;
   permission: string;

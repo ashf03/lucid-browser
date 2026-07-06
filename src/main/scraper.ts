@@ -1,3 +1,7 @@
+/**
+ * Headless Playwright scraper used by the AI chat to ingest web page content.
+ * Returns chunked text (LangChain splitter), outbound links, and a full-page screenshot.
+ */
 import { chromium } from 'playwright';
 import { Document } from 'langchain/document';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';

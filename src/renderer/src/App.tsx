@@ -1,3 +1,7 @@
+/**
+ * Root React tree. Wraps the browser shell with chat and command palette providers.
+ * Routing is minimal — the entire app lives at `/` inside Browser.tsx.
+ */
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import Browser from "./components/Browser"
 import { ChatProvider } from './ai/ChatContext';

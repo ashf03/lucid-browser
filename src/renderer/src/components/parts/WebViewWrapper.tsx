@@ -1,3 +1,7 @@
+/**
+ * Stable webview host — initializes each tab's webview once and keeps refs
+ * across re-renders. Delegates navigation/permission wiring to setupWebview().
+ */
 import React, { useEffect, useRef, useCallback, memo } from 'react'
 import type { Tab } from '../../types/types'
 import Electron from 'electron'

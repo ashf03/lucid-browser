@@ -1,3 +1,7 @@
+/**
+ * Converts local files to plain text for AI/editor ingestion.
+ * Supports PDF, Office docs, images (base64), code, markdown, and archives.
+ */
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';

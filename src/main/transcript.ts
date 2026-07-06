@@ -1,4 +1,9 @@
 // src/utils/transcript.ts
+/**
+ * YouTube transcript fetcher with two strategies:
+ * 1. youtube-transcript package (fast path)
+ * 2. Scrape caption tracks from the watch page (fallback)
+ */
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 

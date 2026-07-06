@@ -1,3 +1,10 @@
+/**
+ * Per-tab AI chat state and LangChain orchestration.
+ *
+ * Each browser tab has isolated messages, loading state, and cancel tokens.
+ * handleSubmit() routes queries to SerpAPI (web, images, maps, products, YouTube)
+ * then streams an Anthropic response with structured context attached.
+ */
 import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { RunnableSequence, RunnablePassthrough } from '@langchain/core/runnables';

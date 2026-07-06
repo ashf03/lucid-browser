@@ -1,4 +1,10 @@
-// src/context/AuthContext.tsx - Complete version with password change functionality
+/**
+ * Authentication state for the renderer.
+ *
+ * Uses Supabase for sign-in/sign-up and mirrors the session into the main-process
+ * auth-store (encrypted electron-store) so sessions survive app restarts.
+ * changePassword() bypasses the Supabase client with a direct HTTP PUT when needed.
+ */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';

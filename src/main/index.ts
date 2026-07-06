@@ -1,3 +1,17 @@
+/**
+ * Lucid Browser — Electron main process entry point.
+ *
+ * Responsibilities:
+ * - Window lifecycle and native chrome (minimize, maximize, close)
+ * - IPC bridge between renderer and Node/Electron APIs (~90 channels)
+ * - Persistent storage via electron-store (history, auth, shortcuts, permissions)
+ * - External API proxies (SerpAPI search, ElevenLabs TTS/STT, YouTube transcripts)
+ * - File conversion, folder/zip ingestion, Playwright scraping
+ * - Download manager, ad blocker, print, screen-share, and keyboard shortcuts
+ *
+ * IPC naming convention: `domain:action` (e.g. `history:add`, `auth:saveSession`).
+ * Renderer access is mediated through `src/preload/index.ts` → `window.electronAPI`.
+ */
 import { app, shell, BrowserWindow, ipcMain, session, nativeTheme, dialog, Menu, MenuItem, globalShortcut, webContents, clipboard, desktopCapturer } from 'electron'
 import path, { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -16,6 +30,9 @@ import os from 'os';
 import { permissionManager } from './permissionManager'
 import { getSerpApiKey, getElevenLabsApiKey, getAuthStoreEncryptionKey } from './env'
 
+// ─── Module state ───────────────────────────────────────────────────────────
+// Shared mutable state used across IPC handlers below.
+
 let downloadCounter = 0;
 const generateDownloadId = () => {
   return `download_${Date.now()}_${++downloadCounter}`;
@@ -26,6 +43,7 @@ const activeDownloadHandlers = new Set();
 let downloads: any[] = []
 let downloadItems = new Map()
 
+// Encrypted store for Supabase session tokens (optional AUTH_STORE_ENCRYPTION_KEY).
 const authStore = new Store({
   name: 'auth-store',
   encryptionKey: getAuthStoreEncryptionKey(),
@@ -45,7 +63,7 @@ interface SupabaseAuthSession {
 let adBlocker: ElectronBlocker | null = null;
 let isAdBlockingEnabled = false;
 
-// Initialize store with schema
+// Primary browser preferences: navigation history stack and theme.
 const store = new Store<StoreSchema>({
   name: 'browser-history',
   defaults: {
@@ -172,6 +190,10 @@ const keyboardShortcutsStore = new Store({
   }
 });
 
+// ─── Downloads ──────────────────────────────────────────────────────────────
+// Tracks in-flight downloads and exposes pause/resume/cancel via IPC.
+// UI is notified through the `update-downloads` push channel.
+
 function getMainDownloadsPath() {
   if (os.platform() !== "win32") {
     try {
@@ -292,6 +314,10 @@ ipcMain.handle('get-window-sources', async () => {
     throw error;
   }
 });
+
+// ─── Permissions & screen capture ───────────────────────────────────────────
+// Persists per-origin permission grants and handles desktop/window capture
+// source enumeration for screen-share flows.
 
 ipcMain.handle('permissions:save', async (_, origin: string, permission: string, granted: boolean) => {
   try {
@@ -508,6 +534,9 @@ let registeredShortcuts: string[] = [];
 const devToolsState = new Map<number, boolean>();
 const tabWebContentsMap = new Map<string, number>();
 
+// ─── Window chrome ──────────────────────────────────────────────────────────
+// Frameless window controls and state events forwarded to the renderer.
+
 ipcMain.handle('window-minimize', () => {
   const focusedWindow = BrowserWindow.getFocusedWindow();
   if (focusedWindow) {
@@ -552,6 +581,10 @@ function setupWindowStateHandlers(mainWindow: BrowserWindow) {
   });
 }
 
+/**
+ * Creates the primary BrowserWindow, wires session policies (DNT, spellcheck),
+ * registers IPC handlers scoped to this window, and loads the renderer.
+ */
 function createWindow(): void {
 
   const preloadPath = join(__dirname, '../preload/index.cjs')
@@ -656,6 +689,9 @@ setTimeout(() => {
     
     console.log('DNT headers enforced for web session');
   }
+
+// ─── First-run setup & file dialogs ─────────────────────────────────────────
+// Onboarding flag, native open dialogs, and folder/zip ingestion for the editor.
 
 ipcMain.handle('setup:check', async () => {
   const setupCompleted = store.get('setupCompleted', false);
@@ -875,6 +911,9 @@ async function initializeAdBlocker() {
   }
 }
 
+// ─── Ad blocker ─────────────────────────────────────────────────────────────
+// Ghostery adblocker applied to default and `persist:main` sessions.
+
 ipcMain.handle('adblocker:enable', async () => {
   try {
     if (!adBlocker) {
@@ -943,6 +982,9 @@ const savedAdBlockingPreference = store.get('adBlockingEnabled', true);
 if (savedAdBlockingPreference) {
   initializeAdBlocker();
 }
+
+// ─── File conversion & chat persistence ─────────────────────────────────────
+// Converts uploaded files to text for AI context; saves per-tab message history.
 
 ipcMain.handle('convert-file', async (_event, filePath) => {
   try {
@@ -1016,6 +1058,7 @@ ipcMain.on('replace-misspelling', (event, suggestion) => {
     return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
   };
 
+  // Spawns the Python location script; returns JSON with coords + Mapbox address.
   ipcMain.handle('get-location', () => {
     return new Promise((resolve, reject) => {
       try {
@@ -1248,7 +1291,9 @@ ipcMain.on('replace-misspelling', (event, suggestion) => {
     }
   });
 
-  // History management handlers
+  // ─── Browsing history ─────────────────────────────────────────────────────
+  // SQLite-backed history stored in electron-store with search and date filters.
+
 ipcMain.handle('history:add', async (_, historyItem: HistoryEntry) => {
   try {
     // Get existing history
@@ -1422,6 +1467,9 @@ ipcMain.handle('history:deleteByDateRange', async (_, startDate: string, endDate
   }
 });
 
+// ─── SerpAPI search proxies ─────────────────────────────────────────────────
+// All search IPC handlers require SERPAPI_API_KEY (or VITE_SERPAPI_API_KEY) in .env.
+
 ipcMain.handle('search-autocomplete', async (_, query: string, locationParams: any) => {
   try {
     const apiKey = getSerpApiKey();
@@ -1545,6 +1593,9 @@ ipcMain.handle('search-youtube', async (_, query: string, locationParams: any) =
     throw error;
   }
 });
+
+// ─── Auth persistence ───────────────────────────────────────────────────────
+// Encrypted local cache of Supabase session/profile for offline restore.
 
 ipcMain.handle('auth:saveSession', async (_, session: SupabaseAuthSession) => {
   try {
@@ -1836,7 +1887,10 @@ ipcMain.handle('setup:complete', async () => {
     }
   });
 
-  // Factory reset Lucid to its original state
+  // ─── App lifecycle, speech & page export ──────────────────────────────────
+  // Factory reset, ElevenLabs TTS/STT, and save-page-to-disk.
+
+// Factory reset Lucid to its original state
 // AKA: Erase Browser
 ipcMain.on('factory-reset-app', async (_) => {
     console.log("Clearing: store, premissionStore and keyboardShortcutsStore");
@@ -2105,6 +2159,10 @@ ipcMain.handle('save-page', async (event, data) => {
     mainWindow.loadURL(resolveHtmlPath('index.html'));
   }
 }
+
+// ─── Keyboard shortcuts ─────────────────────────────────────────────────────
+// Global accelerators registered via Electron; actions dispatched to renderer
+// as CustomEvents (see preload script for the forwarding map).
 
 /**
  * Convert our format of shortcut keys to Electron's accelerator format
@@ -2456,7 +2514,9 @@ async function importSafariHistory(safariDir: string | null) {
   }
 }
 
-// Add these IPC handlers to your existing handlers
+// ─── Browser import ─────────────────────────────────────────────────────────
+// Detects installed Chromium/Firefox/Safari profiles and imports bookmarks/history.
+
 ipcMain.handle('detect-browsers', async () => {
   const paths = getBrowserPaths();
   const available: Record<string, string> = {};
@@ -2901,6 +2961,9 @@ function initializeKeyboardShortcuts() {
 }
 
 
+// ─── Location service (Python) ──────────────────────────────────────────────
+// Spawns a bundled or system Python script for GPS reverse-geocoding via Mapbox.
+
 function getPythonPath(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'python-embed', 'python.exe');
@@ -2931,6 +2994,7 @@ function checkPythonAvailability(): void {
   }
 }
 
+/** Registers IPC handlers for PDF preview, element capture, and webview printing. */
 function setupPrintHandlers() {
   // Generate PDF preview from webview
   ipcMain.handle('print:generatePDFPreview', async (_event, webContentsId) => {
@@ -3041,6 +3105,9 @@ function setupPrintHandlers() {
 
   console.log('Print handlers registered successfully');
 }
+
+// ─── App bootstrap ──────────────────────────────────────────────────────────
+// Electron lifecycle: create window, register print handlers, attach webview policies.
 
 app.whenReady().then(() => {
 

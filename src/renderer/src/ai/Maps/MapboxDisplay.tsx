@@ -1,10 +1,11 @@
+/** Interactive Mapbox GL map for local search / places results in the AI chat. */
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { MapPin, Star, Clock, ExternalLink } from 'lucide-react';
 
-// Initialize with your Mapbox access token
+// Token from VITE_MAPBOX_ACCESS_TOKEN in .env
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
 interface MapLocation {

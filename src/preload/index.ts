@@ -1,7 +1,16 @@
+/**
+ * Preload script — secure bridge between renderer and main process.
+ *
+ * Exposes `window.electronAPI` via contextBridge (see IElectronAPI in types).
+ * IPC invoke/send calls are wrapped with IPCError for easier debugging.
+ *
+ * Below the API object, main-process push events are forwarded to the DOM as
+ * CustomEvents so React components can subscribe without direct ipcRenderer access.
+ */
 import { contextBridge, ipcRenderer } from 'electron'
 import type { HistoryEntry, IElectronAPI, ThemeType } from '../types/types'
-        
-        // Custom error for debugging IPC calls
+
+// Custom error for debugging IPC calls
         class IPCError extends Error {
           constructor(method: string, error: unknown) {
             super(`IPC ${method} failed: ${error}`)
@@ -11,6 +20,7 @@ import type { HistoryEntry, IElectronAPI, ThemeType } from '../types/types'
         
         // Expose the store API to the renderer process
         const api: IElectronAPI = {
+          // electron-store key/value persistence (browser-history, theme, etc.)
           store: {
             set: async (key: string, value: unknown) => {
               try {
@@ -42,6 +52,7 @@ import type { HistoryEntry, IElectronAPI, ThemeType } from '../types/types'
               }
             }
           },
+          // Encrypted Supabase session/profile cache in main process
           auth: {
   saveSession: async (session: any) => {
     try {
@@ -102,6 +113,7 @@ setup: {
               }
             }
           },
+          // Whitelisted invoke channels exposed to renderer (security boundary)
           ipcRenderer: {
             invoke: (channel: string, ...args: any[]) => {
               const validChannels = [
@@ -489,6 +501,9 @@ progress: {
   },
         }
 
+// ─── Main → renderer event forwarding ───────────────────────────────────────
+// Maps ipcRenderer.on channels to document/window CustomEvents.
+
         ipcRenderer.on('window-maximized', () => {
   document.dispatchEvent(new CustomEvent('window-maximized'));
 });
@@ -686,5 +701,6 @@ ipcRenderer.on('permission-request', (_, data) => {
     detail: data 
   }));
 });
-        
-        contextBridge.exposeInMainWorld('electronAPI', api)
+
+// Publish the API to the isolated renderer world (contextIsolation: true)
+contextBridge.exposeInMainWorld('electronAPI', api)

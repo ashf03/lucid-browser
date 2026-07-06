@@ -1,3 +1,7 @@
+/**
+ * Renderer hook for SerpAPI search IPC calls.
+ * Attaches the user's geolocation (from Python/Mapbox) to improve result relevance.
+ */
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from './Location/useLocation';
 import type { 

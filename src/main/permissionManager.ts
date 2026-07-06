@@ -1,3 +1,11 @@
+/**
+ * Intercepts Electron session permission requests and routes them to the renderer
+ * for user approval (camera, mic, geolocation, notifications, screen capture).
+ *
+ * Flow: webview requests permission → PermissionManager queues a prompt →
+ * renderer shows PermissionDialog → user choice sent back via IPC →
+ * session callback invoked with grant/deny.
+ */
 import { app, BrowserWindow, session, ipcMain, desktopCapturer } from 'electron';
 
 interface PermissionRequestData {

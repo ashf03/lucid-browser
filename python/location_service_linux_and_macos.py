@@ -1,3 +1,11 @@
+"""
+Cross-platform location helper (Linux/macOS/Windows).
+
+Windows branch uses winsdk GPS like location_service.py.
+Linux/macOS fall back to IP-based geolocation (ip-api.com) then Mapbox reverse geocode.
+
+Note: main process currently invokes location_service.py on Windows only.
+"""
 import platform
 import asyncio
 import json

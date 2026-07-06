@@ -1,3 +1,4 @@
+/** Provides active tab + webview refs to deeply nested components (e.g. Editor, AI chat). */
 import React, { createContext, useContext, Dispatch, SetStateAction } from 'react';
 import type { Tab } from '../../types/types';
 import Electron from 'electron';

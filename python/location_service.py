@@ -1,3 +1,12 @@
+"""
+Windows location service for Lucid Browser.
+
+Spawned by the main process (`get-location` IPC). Reads GPS via winsdk,
+reverse-geocodes with Mapbox, and prints a single JSON object to stdout.
+
+Environment: VITE_MAPBOX_ACCESS_TOKEN or MAPBOX_ACCESS_TOKEN
+Status codes: success | partial | denied | unavailable | error
+"""
 import asyncio
 import json
 import os

@@ -1,3 +1,9 @@
+/**
+ * Top-level browser shell: sidebar, tab bar, main content area, and overlays.
+ *
+ * Owns tab state (persisted to electron-store), wires webview lifecycle via
+ * setupWebview(), and coordinates permissions, downloads, PiP, and security warnings.
+ */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Sidebar from './Sidebar'
 import TopNavBar from './Topnavbar'
@@ -526,7 +532,11 @@ const Browser = (): JSX.Element => {
     [activeTab, urlInput, updateTabState]
   )
 
-  // 🎯 UPDATED: setupWebview with history recording
+  /**
+   * Attaches navigation, history, security, and permission listeners to a tab webview.
+   * Debounces did-navigate events and distinguishes user vs programmatic navigation
+   * so back/forward and address-bar updates don't fight each other.
+   */
   const setupWebview = useCallback((webview: Electron.WebviewTag, tab: Tab): void => {
     if (!webview) return
 

@@ -1,3 +1,9 @@
+/**
+ * Prebuild script: downloads an embedded Python 3.9 runtime for Windows packaging.
+ *
+ * Output: `python-embed/` with winsdk installed for GPS access.
+ * Referenced by getPythonPath() in src/main/index.ts when app.isPackaged.
+ */
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');

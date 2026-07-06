@@ -1,5 +1,7 @@
-// Create a new file: src/lib/permissionService.ts
-
+/**
+ * Thin wrapper around permissions:* IPC channels.
+ * Persists grant/deny decisions and permission history in electron-store.
+ */
 export interface PermissionResult {
   success: boolean;
   error?: string;

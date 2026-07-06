@@ -1,4 +1,9 @@
-// src/lib/supabase.ts - Removed both invalid properties
+/**
+ * Supabase client configured for Electron.
+ *
+ * Uses a custom storage adapter that persists sessions through main-process IPC
+ * (auth:saveSession / auth:getSession) instead of localStorage.
+ */
 import { createClient, SupabaseClient, Session } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;

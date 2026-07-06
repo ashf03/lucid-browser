@@ -1,3 +1,4 @@
+/** Fetches device location via main-process Python script (get-location IPC). */
 import React, { useEffect, useState } from 'react';
 import { LocationData } from '../../types/types';
 

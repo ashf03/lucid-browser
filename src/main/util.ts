@@ -2,6 +2,7 @@
 import { URL } from 'url';
 import path from 'path';
 
+/** Resolves the renderer HTML URL for dev (Vite) vs production (file://). */
 export function resolveHtmlPath(htmlFileName: string) {
   if (process.env.NODE_ENV === 'development') {
     const port = process.env.PORT || 1212;

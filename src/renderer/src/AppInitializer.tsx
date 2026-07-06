@@ -1,3 +1,7 @@
+/**
+ * Boot gate: shows setup wizard until complete, then mounts the main App.
+ * Wraps everything in AuthProvider so session restore happens before routing.
+ */
 import React, { useEffect, useState } from 'react';
 import SetupScreen from './SetupScreen';
 import App from './App';

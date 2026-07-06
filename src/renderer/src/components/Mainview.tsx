@@ -1,3 +1,8 @@
+/**
+ * Renders all open tabs simultaneously; only the active tab is visible.
+ * Standard tabs use WebViewWrapper; tool tabs (Asterisk) render the Editor.
+ * Handles offline detection and per-tab load error overlays.
+ */
 import React, { useState, useEffect } from 'react'
 import WebViewWrapper from './parts/WebViewWrapper' // 🔄 CHANGED: Import WebViewWrapper instead
 import type { Tab } from '../types/types'

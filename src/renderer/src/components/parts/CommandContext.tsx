@@ -1,3 +1,4 @@
+/** Global state for the command palette (Ctrl+K) open/close and URL load flag. */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface CommandContextType {

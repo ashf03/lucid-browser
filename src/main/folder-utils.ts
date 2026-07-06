@@ -1,3 +1,7 @@
+/**
+ * Builds a tree representation of folders and zip archives for the file manager.
+ * Files are optionally converted to text via file-converters at ingest time.
+ */
 import fs from 'fs';
 import path from 'path';
 import AdmZip from 'adm-zip';
